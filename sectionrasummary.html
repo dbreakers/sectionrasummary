@@ -1,0 +1,628 @@
+
+
+<html>
+<head>
+<link href="https://fonts.googleapis.com/css2?family=Nunito&family=Nunito+Sans:wght@800&display=swap" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script type="text/javascript" src=" https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script type="text/javascript" src=" https://www.2ndnewhawscouts.org.uk/osmr/vfs_fonts.js"></script>
+<script type="text/javascript" src=" https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.33/pdfmake.js"></script>
+<script type="text/javascript" src=" https://www.2ndnewhawscouts.org.uk/osmr/vfs_fonts.js"></script>
+<script type="text/javascript" src=" https://cdn.jsdelivr.net/npm/html-to-pdfmake/docs/browser.js"></script>
+<style>
+   table, th, td {
+  border: 1px solid black;
+}
+  .osmr_toolbar { background: #4D2177; padding: 20px; color: white;  }
+  .osmr_builder {'Nunito', sans-serif; }
+  .extra { width: 100%; padding: 2px; }
+  .collapsed { list-style-type: none; cursor: pointer;}
+.collapsed::before { content: "\25B6"; color:#d45252; }
+.expanded::before { content: "\25BC"; color:#d45252; }
+.collapsed.expanded { color: black; list-style-type: none; }
+.collapsed.expanded::before { content: "\25BC"; color:#d45252;}
+body {font-family: 'Nunito', sans-serif;
+font-family: 'Nunito Sans', sans-serif; }
+
+Terms
+Privacy  
+  </style>
+ <script>
+var osmrelay = "https://www.2ndnewhawscouts.org.uk/osmr/osmrelay2.php";
+var security = new Object();
+var logged_on = false;
+var access_ok  = false;
+var url_list = new Array;
+var report_data = [];
+
+security = null;
+
+    $( function() {
+
+    $("#osmr_loggedon").toggle();
+    $(".osmr_builder").toggle();
+    $(".section-select").change(function() {update_terms()});
+    $(".term-select").change(function() {update_access_check()});
+ // $(".field-select").change(function() {update_field()});
+  } );
+
+
+function update_access_check() {	
+get_api_osm();
+}
+
+
+
+
+function update_events2() {
+var section_id = $(".section-select").val();
+var term_id = $(".term-select").val();
+}
+
+
+function update_terms(){
+	$(".term-select option").remove();
+$(".event-select option").remove();
+var section_id = $(".section-select").val();
+for(var property in terms_config[section_id]) {
+       $("select.term-select").append("<option value=\""+terms_config[section_id][property].termid+"\">"+terms_config[section_id][property].name+"</option>");
+ }
+$("select.term-select").val(terms_config[section_id][terms_config[section_id].length-1].termid);
+update_access_check();
+}
+  
+
+  
+function do_xhr_post(url,f,p) {
+var osmpath = url.substring(37,url.indexOf("?"));
+url = osmrelay +"?osmpath="+osmpath+"&"+url.substring(url.indexOf("?")+1,1000);
+
+if (security !== null ) {
+p['secret'] = security.secret;
+p['userid'] = security.userid;
+}
+
+
+var obj = $.extend({}, p);
+$.ajax({
+			url: url,
+			type: 'POST',
+			data: $.param(obj),
+			success: function(data,status){f(data);},
+                        error: function (responseData, textStatus, errorThrown) {
+        alert('POST failed.'); }
+		});
+}
+
+
+function do_xhr_list(c,f) {
+var url = url_list[c].url;
+var osmpath = url.substring(37,url.indexOf("?"));
+url = osmrelay +"?osmpath="+osmpath+"&"+url.substring(url.indexOf("?")+1,1000);
+p2 = [];
+if (security !== null ) {
+p2['secret'] = security.secret;
+p2['userid'] = security.userid;
+}
+
+
+var obj = $.extend({}, p2);
+$("#read_data_desc").text(url_list[c].desc);
+ $.post(url,$.param(obj),function(data,status){
+   var index = "";
+   if (url_list[c].field.indexOf("|")>1) {
+          index = url_list[c].field.substring(url_list[c].field.lastIndexOf("|")+1);
+          url_list[c].field = url_list[c].field.substring(0,url_list[c].field.lastIndexOf("|"));
+       }
+   
+       if (index=="") { url_list[c].data[url_list[c].field] = data; }
+                    else 
+                      { url_list[c].data[url_list[c].field][index] = data; }
+
+
+  if ((url_list.length -1)  != c ) {
+       do_xhr_list(c+1,f);
+              } else { 
+              f();
+              }
+                
+
+        });
+
+}
+
+
+
+function do_xhr(url,f,p) {
+var osmpath = url.substring(37,url.indexOf("?"));
+url = osmrelay +"?osmpath="+osmpath+"&"+url.substring(url.indexOf("?")+1,1000);
+p2 = [];
+if (security !== null ) {
+p2['secret'] = security.secret;
+p2['userid'] = security.userid;
+}
+
+
+var obj = $.extend({}, p2);
+ $.post(url,$.param(obj),function(data,status){
+            f(data);
+        });
+
+}
+
+function get_sections(text) {
+
+  security = JSON.parse(text);
+  if (security.secret == null)
+  {
+    alert("Cannot Logon");
+    logged_on = false;   
+  } else
+  {
+    logged_on = true;
+  }
+if (($("#osmr_logon").is(":visible"))&&(logged_on==true)) { 
+$("#osmr_logon").toggle("slow");
+$("#osmr_loggedon").toggle("slow");
+}
+
+if (($("#osmr_loggedon").is(":visible"))&&(logged_on==false)) { 
+$("#osmr_loggedon").toggle("slow");
+$("#osmr_logon").toggle("slow");
+}
+if (($("#osmr_builder").is(":visible"))&&(logged_on==false)) { 
+$(".osmr_builder").toggle();
+}
+if (($("#osmr_builder").not(":visible"))&&(logged_on==true)) { 
+$(".osmr_builder").toggle();
+}
+if(logged_on==true) { 
+do_xhr('https://www.onlinescoutmanager.co.uk/api.php?action=getSectionConfig',set_sections,"");
+}
+}
+
+function set_sections(text) {
+ sections = text;
+ section_config = JSON.parse(sections);
+ do_xhr('https://www.onlinescoutmanager.co.uk/api.php?action=getTerms',set_terms,"");
+}
+
+function set_terms(text) {
+ terms = text;
+ do_xhr('https://www.onlinescoutmanager.co.uk/api.php?action=getUserRoles',set_roles,"");
+}
+
+function set_roles(text) {
+ roles = text;
+ roles_config = JSON.parse(roles);
+ terms_config = JSON.parse(terms);
+$(".section-select option").remove();
+ for(var property in section_config) {
+       $("select.section-select").append("<option value=\""+property+"\">"+roles_config[get_roles_section(property)].groupname+":"+roles_config[get_roles_section(property)].sectionname+"</option>");
+ }
+update_terms();
+}
+
+function get_roles_section(section) {
+var property;
+for(property in roles_config) {
+if (roles_config[property].sectionid == section) {
+        return property;
+    }
+}
+}
+
+function call_report() {
+ var parameters = [];
+
+  parameters['email'] = $("#username").val();
+  parameters['password'] = $("#password").val();
+do_xhr_post('https://www.onlinescoutmanager.co.uk/users.php?action=authorise',get_sections,parameters);
+
+}
+
+
+
+function get_api_osm()
+{
+var url = 'https://www.2ndnewhawscouts.org.uk/osmr/osmrelay.php?osmpath=ext/settings/access/&action=getAPIAccess&sectionid='+$(".section-select").val();
+do_xhr(url,update_osm_api,"");
+}
+
+function update_osm_api(text) {
+rights = JSON.parse(text);
+access_ok = true;
+for (var j = 0; j < (rights.apis).length; j++)
+   {
+     if (rights.apis[j].apiid=="41") {
+        if (rights.apis[j].permissions.empty=="true")
+        {
+          access_ok = false;
+        } else
+        {
+          if (rights.apis[j].permissions.programme==0) {
+            access_ok = false;
+          } 
+         if (rights.apis[j].permissions.events==0) {
+            access_ok = false;
+          }
+        }
+     }
+  }
+//	   update_events2();
+} 
+
+
+function parse_members(text) {
+members =JSON.parse(text);
+}
+
+function get_members_det(text) {
+event_structure = JSON.parse(text);
+url = "https://www.onlinescoutmanager.co.uk/ext/members/contact/grid/?action=getMembers"
+parameters = [];
+parameters['section_id'] =$(".section-select").val();
+parameters['term_id'] = $(".term-select").val();
+do_xhr_post(url,parse_members,parameters)
+}
+
+function get_event_struc(text) {
+attendance = JSON.parse(text);
+url = "https://www.onlinescoutmanager.co.uk/ext/events/event/?action=getStructureForEvent&eventid="+$(".event-select").val()+"&sectionid="+$(".section-select").val();
+do_xhr(url,get_members_det,"");
+}
+
+
+
+function compare(a, b) {
+  // Use toUpperCase() to ignore character casing
+  const bandA = a.manual_category.toUpperCase();
+  const bandB = b.manual_category.toUpperCase();
+
+  let comparison = 0;
+  if (bandA > bandB) {
+    comparison = 1;
+  } else if (bandA < bandB) {
+    comparison = -1;
+  }
+  return comparison;
+}
+
+
+function get_ra(text){
+//$(".docs2").text($(".section-select option:selected").text()+":"+$(".event-select option:selected").text());
+//$(".docs").text("");
+event_ra = JSON.parse(text);
+if (event_ra.data.length>0) {
+table="<table><tr><th width='25%'>Hazard Identified?<br>Risks from it?</th><th width='25%'>Who is at risk?</th><th width='25%'>How are the risks already controlled?<br>What extra controls are needed?</th><th width='25%'>What has changed that needs to be thought about and controlled?</th></tr>"
+event_ra.data.sort(compare);
+for (i=0;i<event_ra.data.length;i++) {
+ if(i==0||event_ra.data[i-1].manual_category!=event_ra.data[i].manual_category){
+table=table+"<tr><td colspan='4'><b>"+event_ra.data[i].manual_category+"</b></td></tr>"
+}
+ table=table+"<tr><td>"+event_ra.data[i].manual_hazard+"</td><td>"+event_ra.data[i].who+"</td><td>"+event_ra.data[i].controls+"</td><td>"+event_ra.data[i].check+"</td></tr>"
+}
+table=table+"</table>"; } else {table = "No RA Maintained"}
+//$(".ra_table").html(table);
+//$(".ra_table").text((event_ra.data.length)+" Risk items loaded");
+return table
+}
+
+function update_dashboard3() {
+if ($(".docs3").is(":visible")) { $(".docs3").toggle("slow");}
+if ($(".docs4").is(":visible")) { $(".docs4").toggle();}
+var html="<ul id='expList'>"
+  for(var section in report_data) {
+    section_name = roles_config.find(i => i.sectionid==section)
+    html=html+"<li class='section'>"+section_name.sectionname
+    var events = JSON.parse(report_data[section].events);
+    html=html+"<ul><li  class='type'>Events<ul>" 
+    for (var ev in events.items) {
+     html=html+"<li class='ra_is_for'>"+events.items[ev].name+" "+events.items[ev].startdate;
+     
+     var ra_txt = report_data[section].event_ra[events.items[ev].eventid];
+     var ra = JSON.parse(ra_txt);
+     if (ra.data.length>0) {html=html+"&#x2705;"} else {html=html+"&#x274c;"}
+     html=html+"<ul><li class='ra'>"
+     html=html+get_ra(report_data[section].event_ra[events.items[ev].eventid]); 
+     html=html+"<br><button type='button' onclick='print_ra(0,"+events.items[ev].eventid+","+section+",1)' id='button'>Print RA</button>"
+     html=html+"<button type='button' onclick='print_ra(0,"+events.items[ev].eventid+","+section+",0)' id='button'>Download RA</button>"
+     html=html+"</li></ul>"
+     html=html+"</li>"
+    }
+    html=html+"</ul><li  class='type'>Programme<ul>"
+    var progs = JSON.parse(report_data[section].programme);
+    for (var pr in progs.items) {
+      html=html+"<li  class='ra_is_for'>"+progs.items[pr].title+" "+progs.items[pr].meetingdate
+      var ra_txt = report_data[section].prog_ra[progs.items[pr].eveningid];
+      var ra = JSON.parse(ra_txt);
+      if (ra.data.length>0) {html=html+"&#x2705;"} else {html=html+"&#x274c;"}
+      html=html+"<ul><li  class='ra'>"
+      html=html+get_ra(report_data[section].prog_ra[progs.items[pr].eveningid]);
+     html=html+"<br><button type='button' onclick='print_ra(1,"+progs.items[pr].eveningid+","+section+",1)' id='button'>Print RA</button>"
+     html=html+"<button type='button' onclick='print_ra(1,"+progs.items[pr].eveningid+","+section+",0)' id='button'>Download RA</button>"
+      html=html+"</li></ul>"
+     html=html+"</li>"
+    }
+    html=html+"</ul></ul>"
+  }  
+html = html+"</li></ul>"
+$("#dash").html(html);
+      $("#expList").find('li:has(ul)')
+      .unbind('click')
+      .click(function(event) {
+        if(this == event.target) {
+           $(this).toggleClass('expanded');
+           $(this).children('ul').toggle('medium');
+        }
+        // return false;
+       }).addClass('collapsed')
+      .removeClass('expanded')
+      .children('ul').hide();
+$('#expandList').unbind('click').click(function() {
+		$('.collapsed').addClass('expanded');
+		$('.collapsed').children().show('medium');
+	})
+	$('#collapseList').unbind('click').click(function() {
+		$('.collapsed').removeClass('expanded');
+		$('.collapsed').children().hide('medium');
+	})
+
+}
+
+function update_dashboard2() {
+// Get RAs for Events and Programme
+url_list =[];
+for(var section in report_data) {
+  var events = JSON.parse(report_data[section].events);
+  report_data[section].event_ra = new Object; 
+  for (var ev in events.items) {
+    report_data[section].event_ra[events.items[ev].eventid] = "";
+    get_entry = new Object;
+    url="https://www.onlinescoutmanager.co.uk/ext/risk_assessments/?action=getRiskAssessment&section_id="+section+"&type=event&associated_id="+events.items[ev].eventid;
+    get_entry.url = url;
+    get_entry.field = "event_ra|"+events.items[ev].eventid;
+    get_entry.data = report_data[section];
+    get_entry.desc = events.items[ev].name;
+    url_list.push(get_entry);
+   
+  }
+}
+for(var section in report_data) {
+  var progs = JSON.parse(report_data[section].programme);
+  report_data[section].prog_ra = new Object; 
+  for (var pr in progs.items) {
+    report_data[section].prog_ra[progs.items[pr].eveningid] = "";
+    get_entry = new Object;
+    url="https://www.onlinescoutmanager.co.uk/ext/risk_assessments/?action=getRiskAssessment&section_id="+section+"&type=meeting&associated_id="+progs.items[pr].eveningid;
+    get_entry.url = url;
+    get_entry.field = "prog_ra|"+progs.items[pr].eveningid;
+    get_entry.data = report_data[section];
+    get_entry.desc = progs.items[pr].title;
+    url_list.push(get_entry);
+   
+  }
+}
+
+do_xhr_list(0,update_dashboard3);
+}
+
+function update_dashboard() {
+//Get Details of the Event RA
+report_data = {}
+if (!($(".docs3").is(":visible"))) { $(".docs3").toggle("slow");}
+var section_id = $(".section-select").val();
+var term_id = $(".term-select").val();
+//if ($("#pdf_viewer").is(":visible")) { $("#pdf_viewer").toggle("slow");}
+if(!access_ok) {$(".docs2").text("You do not have sufficient access to this section")}
+if (access_ok) {
+$(".docs2").text("");
+
+//Start by reading Event list and Programme List
+// We then need to read RA for each of them!
+
+url_list=[];
+report_data[section_id] = new Object;
+report_data[section_id].events = "";
+report_data[section_id].programme = "";
+get_entry = new Object;
+url="https://www.onlinescoutmanager.co.uk/ext/events/summary/?action=get&sectionid="+section_id+"&termid="+term_id;
+get_entry.url = url;
+get_entry.section = section_id;
+get_entry.field = "events";
+get_entry.desc = "Events";
+get_entry.data = report_data[section_id];
+
+//get_entry.data.events = "";
+url_list.push(get_entry);
+get_entry = new Object;
+url="https://www.onlinescoutmanager.co.uk/ext/programme/?action=getProgrammeSummary&sectionid="+section_id+"&termid="+term_id
+get_entry.url = url;
+get_entry.section = section_id;
+get_entry.field = "programme";
+get_entry.desc = "Programme";
+get_entry.data = report_data[section_id];
+url_list.push(get_entry);
+do_xhr_list(0,update_dashboard2);
+
+}
+}
+
+function log_off() {
+security = null;
+$("#osmr_loggedon").toggle("slow");
+$("#osmr_logon").toggle("slow");
+$(".osmr_builder").toggle();
+
+}
+
+function print_ra(event,id,section,print) {
+if (event==0) {
+   var text = report_data[section].event_ra[id]
+} else {
+var text = report_data[section].prog_ra[id]
+}
+event_ra = JSON.parse(text)
+event_ra.data.sort(compare);
+
+  var printsec = false;
+  var missingdata = false;
+  var pdf_doc = new Object;
+var today = new Date();
+      var dd = today.getDate();
+      var mm = today.getMonth()+1; //January is 0!
+      var yyyy = today.getFullYear();
+if (!($("#pdf_viewer").is(":visible"))) { $("#pdf_viewer").toggle("slow");}
+      var pdf_header = new Object;
+      pdf_header.text = '\n Extracted from Online Scout Manager on '+dd+"."+mm+"."+yyyy;
+      pdf_header.alignment = "center";
+  //    pdf_header.margin = [20,0,0,0];
+      pdf_doc.header = pdf_header;
+   pdf_doc.pageSize = "A4";
+pdf_doc.pageOrientation = "landscape";
+
+  pdf_doc.styles = {
+header:{
+fontSize: 18,
+			bold: true,
+			margin: [0, 0, 0, 10]
+		},
+		subheader: {
+			fontSize: 16,
+			bold: true,
+			margin: [0, 10, 0, 5]
+		},
+		tableExample: { 
+                        fontSize: 8,	
+			margin: [0, 5, 0, 15]
+		},
+		tableHeader: {
+			bold: true,
+			fontSize: 13,
+			color: 'black'
+		}
+	}
+  pdf_doc.defaultStyle = {
+		// alignment: 'justify'
+	} 		;
+  pdf_doc.content = [];
+  
+//if($('#ra').is(":checked")) {
+  printsec = true;
+  var pdf_table = new Object ;
+  pdf_table.table = new Object;
+  pdf_table.table.headerRows = 1;
+  pdf_table.table.body = new Array;
+  var table_row = new Array;  
+   table_row=[];
+  table_row.push("Hazard Identified?\nRisks from it?");
+
+  table_row.push("Who is at risk?");
+
+  table_row.push("How are the risks already controlled?\nWhat extra controls are needed?	");
+
+  table_row.push("What has changed that needs to be thought about and controlled?");
+      
+      pdf_table.table.body.push(table_row);
+//  for (i=0;i<event_ra.data.length;i++) {
+  
+ // var num = $(".connectedSortable").size();
+
+for (i=0;i<event_ra.data.length;i++) {
+
+table_row = [];
+ if(i==0||event_ra.data[i-1].manual_category!=event_ra.data[i].manual_category){
+var pdf_table_cell = new Object;
+               pdf_table_cell.text = event_ra.data[i].manual_category
+               pdf_table_cell.colSpan =  4;
+               pdf_table_cell.fillColor= '#eeeeee';
+               table_row.push(pdf_table_cell);
+pdf_table.table.body.push(table_row);
+}
+ table_row = [];
+ var pdf_table_cell = new Object;
+ pdf_table_cell.text = event_ra.data[i].manual_hazard
+ table_row.push(pdf_table_cell);
+var pdf_table_cell = new Object;
+ pdf_table_cell.text = event_ra.data[i].who
+ table_row.push(pdf_table_cell);
+var pdf_table_cell = new Object;
+ pdf_table_cell.text = event_ra.data[i].controls
+ table_row.push(pdf_table_cell);
+var pdf_table_cell = new Object;
+ pdf_table_cell.text = event_ra.data[i].check
+ table_row.push(pdf_table_cell); 
+pdf_table.table.body.push(table_row);
+}
+pdf_create = {};
+if (event==0) {
+evlist = JSON.parse(report_data[section].events);
+ev = evlist.items.find(i=>i.eventid==id)
+pdf_create.text= ev.name;} else
+{
+evlist = JSON.parse(report_data[section].programme);
+ev = evlist.items.find(i=>i.eveningid==id)
+pdf_create.text= ev.title;}
+pdf_create.style = "subheader";
+pdf_doc.content.push(pdf_create);
+pdf_doc.content.push(pdf_table); 
+if (event_ra.data.length==0) {
+pdf_create = {};
+pdf_create.style="header";
+pdf_create.text= "\nNo Risk Assessment maintained";
+pdf_doc.content.push(pdf_create);
+
+}
+
+
+var pdf_footer = function(currentPage, pageCount) {  return {text: currentPage.toString() + ' of ' + pageCount, alignment: 'center'}; };
+      pdf_doc.footer = pdf_footer;
+
+if (print==0) {
+pdfMake.createPdf(pdf_doc).download();
+} else {
+pdfMake.createPdf(pdf_doc).getDataUrl(function(outDoc) {
+                $("#pdf_viewer").attr("src", outDoc);
+                });
+ $([document.documentElement, document.body]).animate({
+        scrollTop: $("#pdf_viewer").offset().top
+    }, 2000);
+}
+
+}
+
+  </script>
+</head>
+<body>
+<div class="osmr_toolbar">
+<span style="font-size:30px">Online Scout Manager Section RA Dashboard</span>
+<div id="osmr_logon"><span id="username_block">Username: <input type="text" name="username" id="username"></span>
+<span id="password_block">Password: <input type="password" name="password" id="password">
+<button type="button" onclick="call_report()" id="logon_button">Log On</button></span></div>
+<div id="osmr_loggedon">
+<button type="button" onclick="log_off()" id="logoff_button">Log Off</button>
+<span>Section: <select class="section-select"><option></option></select></span>
+<span>Term: <select class="term-select"><option></option></select></span>
+<span style="display:none">Event: <select class="event-select"></select></span>
+<button type="button" onclick="update_dashboard()" id="go_button">Go!</button></span></div>
+
+</div>
+</div>
+
+<div class="osmr_builder">
+<div>
+<h3 class="docs2"></h3>
+<h3 class="docs">Make Your Selections above and then press Go!</h3>
+<h3 class="docs3" style="display:none">Loading data for <span id="read_data_desc"></span></h3>
+<div class="ra_table">
+<div class="docs4">First time of use? Login to OSM and make sure under Settings->My Account Details->External Access the API called OSMR has read access to your programme and events</div> 
+</div>
+<div id="event_selected_grid">
+</div>
+<div id="dash"></div>
+</div>
+<iframe id="pdf_viewer" width=100% style ="min-width: 700px; height: 800px;display:none;"><iframe> 
+</div>
+</body>
+</html>
